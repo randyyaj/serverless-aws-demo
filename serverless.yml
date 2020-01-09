@@ -1,0 +1,60 @@
+service: string-transform
+app: string-transform
+org: ryangdeveloper
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  stage: ${opt:stage, 'dev'}
+  # environment:
+  #   ENCRYPT_URL: blah.com #grab this in handler via process.env.ENCRYPT_URL
+  # Reference an .env var using ${env:SOME_VAR}
+  
+functions:
+  encrypt:
+    handler: src/function/handler.encrypt
+    events:
+      - http:
+          path: encrypt
+          method: POST
+          cors: true
+  minutecron:
+    handler: src/function/handler.minutecron
+    events:
+      - schedule: 
+          rate: rate(1 minute)
+          enabled: false
+  manipulate:
+    handler: src/function/handler.manipulate
+  reverse:
+    handler: src/function/handler.reverse
+  capitalize:
+    handler: src/function/handler.capitalize
+  quote:
+    handler: src/function/handler.quote
+  isPalindrome:
+    handler: src/function/handler.isPalindrome
+  hasNumerical:
+    handler: src/function/handler.hasNumerical
+
+stepFunctions:
+  ${file(includes/stringTransformation.yml)}
+  
+plugins:
+  - serverless-plugin-typescript
+  - serverless-step-functions
+  - serverless-pseudo-parameters
+
+package:
+  individually: true
+  exclude:
+    - node_modules/**
+    - src/function/__tests__
+    - .git/**
+    - .build/**
+    - .gitignore
+    - tsconfig.json
+    - package-lock.json
+    - package.json
+    - "*.md"
+    - "*.svg"

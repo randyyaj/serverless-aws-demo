@@ -1,0 +1,80 @@
+stateMachines:
+  stringTransformation:
+    name: stringTransformationStateMachine
+    events:
+      - http:
+          path: manipulate
+          method: POST
+          # request:
+          #   template: lambda_proxy #for capturing http headers and request parameters
+    definition:
+      Comment: 'Executing stringTransformation state machine'
+      StartAt: RequestForStringManipulation
+      States:
+        RequestForStringManipulation:
+          Type: Task
+          Resource: #"arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage, self:provider.stage}-manipulate"
+            Fn::GetAtt: [manipulate, Arn] #short-hand using serverless-pseudo-parameters plugin
+          Next: HasNumerical
+        HasNumerical:
+          Type: Task
+          Resource: #"arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage, self:provider.stage}-hasNumerical"
+            Fn::GetAtt: [hasNumerical, Arn] #short-hand using serverless-pseudo-parameters plugin
+          Next: ChoiceState
+        ChoiceState:
+          Type: Choice
+          Choices:
+          - Variable: "$.hasNumerical"
+            BooleanEquals: true 
+            Next: FailedState
+          Default: ReverseString
+        ReverseString:
+          Type: Task
+          Resource: #"arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage, self:provider.stage}-reverse"
+            Fn::GetAtt: [reverse, Arn] #short-hand using serverless-pseudo-parameters plugin
+          Next: CapitalizeString
+        CapitalizeString:
+          Type: Task
+          Resource: #"arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage, self:provider.stage}-capitalize"
+            Fn::GetAtt: [capitalize, Arn] #short-hand using serverless-pseudo-parameters plugin
+          Next: QuoteString
+        QuoteString:
+          Type: Task
+          Resource: #"arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage, self:provider.stage}-quote"
+            Fn::GetAtt: [quote, Arn] #short-hand using serverless-pseudo-parameters plugin
+          Next: HashString
+        HashString:
+          Type: Task
+          Resource: #"arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage, self:provider.stage}-encrypt"
+            Fn::GetAtt: [encrypt, Arn]
+          # **Note You can only use one or the other Retry or Catch state
+          # Retry:
+          #   - ErrorEquals:
+          #     - States.ALL #HandleError,States.TaskFailed,States.ALL
+          #     IntervalSeconds: 5
+          #     MaxAttempts: 5
+          #     BackoffRate: 2
+          # End: true
+          Catch:
+          - ErrorEquals: ["HandledError"]
+            Next: CustomErrorFallback
+          - ErrorEquals: ["States.TaskFailed"]
+            Next: ReservedTypeFallback
+          - ErrorEquals: ["States.ALL"]
+            Next: CatchAllFallback
+          End: true
+        CustomErrorFallback:
+          Type: Pass
+          Result: "This is a fallback from a custom lambda function exception"
+          End: true
+        ReservedTypeFallback:
+          Type: Pass
+          Result: "This is a fallback from a reserved error code"
+          End: true
+        CatchAllFallback:
+          Type: Pass
+          Result: "This is a fallback from a reserved error code"
+          End: true
+        FailedState:
+          Type: Fail
+          Cause: "String contain numbers"
